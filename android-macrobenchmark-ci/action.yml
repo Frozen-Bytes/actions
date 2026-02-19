@@ -1,0 +1,141 @@
+name: 'Android Macrobenchmark Continuous Integration'
+description: 'Continuous Benchmark using Macrobenchmark for detecting performance regressions'
+branding:
+  icon: 'fast-forward'
+  color: 'blue'
+
+inputs:
+  api-level:
+    description: 'API level of the platform and system image - e.g. 23, 33, 35-ext15, Baklava'
+    required: true
+  system-image-api-level:
+    description: 'API level of the system image - e.g. 34-ext10, 35-ext15. If not set the `api-level` input will be used.'
+    required: false
+  target:
+    description: 'target of the system image - e.g. default, google_apis, google_apis_ps16k, google_apis_playstore, google_apis_playstore_16k, aosp_atd, google_atd, android-wear, android-wear-cn, android-tv, google-tv, android-automotive, android-automotive-playstore or android-desktop'
+    default: 'default'
+  arch:
+    description: 'CPU architecture of the system image - x86, x86_64 or arm64-v8a'
+    default: 'x86'
+  profile:
+    description: 'hardware profile used for creating the AVD - e.g. `Nexus 6`'
+  cores:
+    description: 'the number of cores to use for the emulator'
+    default: 2
+  ram-size:
+    description: 'size of RAM to use for this AVD, in KB or MB, denoted with K or M. - e.g. `2048M`'
+  heap-size:
+    description: 'size of heap to use for this AVD in MB. - e.g. `512M`'
+  sdcard-path-or-size:
+    description: 'path to the SD card image for this AVD or the size of a new SD card image to create for this AVD, in KB or MB, denoted with K or M. - e.g. `path/to/sdcard`, or `1000M`'
+  disk-size:
+    description: 'disk size to use for this AVD. Either in bytes or KB, MB or GB, when denoted with K, M or G'
+  avd-name:
+    description: 'custom AVD name used for creating the Android Virtual Device'
+    default: 'test'
+  force-avd-creation:
+    description: 'whether to force create the AVD by overwriting an existing AVD with the same name as `avd-name` - `true` or `false`'
+    default: 'true'
+  emulator-boot-timeout:
+    description: 'Emulator boot timeout in seconds. If it takes longer to boot, the action would fail - e.g. `300` for 5 minutes'
+    default: '600'
+  emulator-port:
+    description: 'Port to run emulator on, allows to run multiple emulators on the same physical machine'
+    default: '5554'
+  emulator-options:
+    description: 'command-line options used when launching the emulator - e.g. `-no-window -no-snapshot -camera-back emulated`'
+    default: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim'
+  disable-animations:
+    description: 'whether to disable animations - true or false'
+    default: 'true'
+  disable-spellchecker:
+    description: 'whether to disable the Android spell checker framework, a common source of flakiness in text fields - `true` or `false`'
+    default: 'false'
+  disable-linux-hw-accel:
+    description: 'whether to disable hardware acceleration on Linux machines - `true` or `false` or `auto`'
+    default: 'auto'
+  enable-hw-keyboard:
+    description: 'whether to enable hardware keyboard - `true` or `false`.'
+    default: 'false'
+  emulator-build:
+    description: 'build number of a specific version of the emulator binary to use - e.g. `6061023` for emulator v29.3.0.0'
+  working-directory:
+    description: 'A custom working directory - e.g. `./android` if your root Gradle project is under the `./android` sub-directory within your repository'
+  ndk:
+    description: 'version of NDK to install - e.g. 21.0.6113669'
+  cmake:
+    description: 'version of CMake to install - e.g. 3.10.2.4988404'
+  channel:
+    description: 'Channel to download the SDK components from - `stable`, `beta`, `dev`, `canary`'
+    default: 'stable'
+  pre-emulator-launch-script:
+    description: 'custom script to run after creating the AVD and before launching the emulator - e.g. `./adjust-emulator-configs.sh`'
+  baseline-apk:
+    description: 'Path to the baseline apk file'
+    required: true
+  candidate-apk:
+    description: 'Path to the candidate apk file'
+    required: true
+  benchmark-apk:
+    description: 'Path to the benchmark apk file'
+    required: true
+  instrument-args:
+    description: 'Extra arguments passed to instrumentation runner'
+    default: ""
+  artifact-name:
+    description: "Name of the uploaded benchmark artifact"
+    default: "macrobenchmark-results"
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+
+    - name: Install Benchcomp
+      shell: bash
+      run: pip install git+https://github.com/Frozen-Bytes/benchcomp.git@v1.0.0
+
+    - name: Run Benchmarks
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: ${{ inputs.api-level }}
+        system-image-api-level: ${{ inputs.system-image-api-level }}
+        target: ${{ inputs.target }}
+        arch: ${{ inputs.arch }}
+        profile: ${{ inputs.profile }}
+        cores: ${{ inputs.cores }}
+        ram-size: ${{ inputs.ram-size }}
+        heap-size: ${{ inputs.heap-size }}
+        sdcard-path-or-size: ${{ inputs.sdcard-path-or-size }}
+        disk-size: ${{ inputs.disk-size }}
+        avd-name: ${{ inputs.avd-name }}
+        force-avd-creation: ${{ inputs.force-avd-creation }}
+        emulator-boot-timeout: ${{ inputs.emulator-boot-timeout }}
+        emulator-port: ${{ inputs.emulator-port }}
+        emulator-options: ${{ inputs.emulator-options }}
+        disable-animations: ${{ inputs.disable-animations }}
+        disable-spellchecker: ${{ inputs.disable-spellchecker }}
+        disable-linux-hw-accel: ${{ inputs.disable-linux-hw-accel }}
+        enable-hw-keyboard: ${{ inputs.enable-hw-keyboard }}
+        emulator-build: ${{ inputs.emulator-build }}
+        working-directory: ${{ inputs.working-directory }}
+        ndk: ${{ inputs.ndk }}
+        cmake: ${{ inputs.cmake }}
+        channel: ${{ inputs.channel }}
+        pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
+        script: |
+          chmod +x "${{ github.action_path }}/benchmark.sh"
+          "${{ github.action_path }}/benchmark.sh" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
+
+    - name: Compare Macrobenchmark Results
+      shell: bash
+      run: benchcomp --verbose "./macrobenchmark_results/baseline" "./macrobenchmark_results/candidate"
+
+    - name: Upload Artifacts
+      if: ${{ inputs.artifact-name != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ./macrobenchmark_results/
