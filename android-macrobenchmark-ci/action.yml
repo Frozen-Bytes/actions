@@ -95,7 +95,7 @@ runs:
 
     - name: Install Benchcomp
       shell: bash
-      run: pip install git+https://github.com/Frozen-Bytes/benchcomp.git@v1.0.0
+      run: pip install git+https://github.com/Frozen-Bytes/benchcomp.git@v1.2.0
 
     - name: Run Benchmarks
       uses: reactivecircus/android-emulator-runner@v2
@@ -131,7 +131,7 @@ runs:
 
     - name: Compare Macrobenchmark Results
       shell: bash
-      run: benchcomp --verbose "./macrobenchmark_results/baseline" "./macrobenchmark_results/candidate"
+      run: benchcomp --verbose -A -a -- "./macrobenchmark_results/baseline" "./macrobenchmark_results/candidate"
 
     - name: Upload Artifacts
       if: ${{ inputs.artifact-name != '' }}
