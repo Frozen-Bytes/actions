@@ -301,14 +301,22 @@ run_benchmark() {
     -e no-isolated-storage true \
     -e additionalTestOutputDir "${EMULATOR_BENCHMARK_RESULT_DIR}" \
     "${INSTRUMENT_PASSTHROUGH_ARGS[@]}" \
-    "${BENCHMARK_PKG_NAME}/$TEST_RUNNER"
+    "${BENCHMARK_PKG_NAME}/$TEST_RUNNER" || {
+      echo "warn: benchmark run exited with non-zero status — test may have failed"
+    }
 }
 
 write_benchmark_result() {
   local dest_path="${1}"
   local pull_temp="${TEMP_DIR}/pull_$(date +%s)"
   adb pull "${EMULATOR_BENCHMARK_RESULT_DIR}/." "${pull_temp}" > /dev/null
-  mkdir -p $(dirname "${dest_path}") && mv "${pull_temp}/"*.json "${dest_path}"
+
+  local json_files=("${pull_temp}"/*.json)
+  if [[ -e "${json_files[0]}" ]]; then
+    mkdir -p "$(dirname "${dest_path}")" && mv "${pull_temp}/"*.json "${dest_path}"
+  else
+    echo "warn: no JSON results found — benchmark likely failed, skipping result write"
+  fi
 }
 
 # ─────────────────────────────────────────────
