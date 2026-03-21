@@ -170,7 +170,7 @@ jobs:
           ./gradlew :app:assembleDemoBenchmark :benchmarks:assembleDemoBenchmark
 
       - name: Android Macrobenchmark CI
-        uses: Frozen-Bytes/actions/android-macrobenchmark-ci@main
+        uses: Frozen-Bytes/actions/android-macrobenchmark-ci@logging
         with:
           api-level: ${{ inputs.api-level }}
           system-image-api-level: ${{ inputs.system-image-api-level }}
