@@ -79,12 +79,21 @@ inputs:
   benchmark-apk:
     description: 'Path to the benchmark apk file'
     required: true
+  runs:
+    description: 'Number of benchmark iterations (passed to --runs)'
+    default: '1'
+  benchmark-output-dir:
+    description: 'Directory for benchmark results (passed to --output-dir)'
+    default: './macrobenchmark_results'
   instrument-args:
     description: 'Extra arguments passed to instrumentation runner'
-    default: ""
+    default: ''
+  benchcomp-args:
+    description: 'Arguments passed directly to benchcomp'
+    default: '--verbose -A -a'
   artifact-name:
     description: "Name of the uploaded benchmark artifact"
-    default: "macrobenchmark-results"
+    default: 'macrobenchmark-results'
 runs:
   using: 'composite'
   steps:
@@ -127,15 +136,15 @@ runs:
         pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
         script: |
           chmod +x "${{ github.action_path }}/benchmark.sh"
-          "${{ github.action_path }}/benchmark.sh" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
+          "${{ github.action_path }}/benchmark.sh" --runs "${{ inputs.runs }}" --output-dir "${{ inputs.benchmark-output-dir }}" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
 
     - name: Compare Macrobenchmark Results
       shell: bash
-      run: benchcomp --verbose -A -a -- "./macrobenchmark_results/baseline" "./macrobenchmark_results/candidate"
+      run: benchcomp ${{ inputs.benchcomp-args }} -- "${{ inputs.benchmark-output-dir }}/baseline" "${{ inputs.benchmark-output-dir }}/candidate"
 
     - name: Upload Artifacts
       if: ${{ inputs.artifact-name != '' }}
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.artifact-name }}
-        path: ./macrobenchmark_results/
+        path: "${{ inputs.benchmark-output-dir }}"

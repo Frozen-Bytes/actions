@@ -93,13 +93,25 @@ on:
       pre-emulator-launch-script:
         description: 'custom script to run after creating the AVD and before launching the emulator - e.g. `./adjust-emulator-configs.sh`'
         type: string
+      runs:
+        description: 'Number of benchmark iterations (passed to --runs)'
+        default: '1'
+        type: string
+      benchmark-output-dir:
+        description: 'Directory for benchmark results (passed to --output-dir)'
+        default: './macrobenchmark_results'
+        type: string
       instrument-args:
         description: 'Extra arguments passed to instrumentation runner'
-        default: ""
+        default: ''
+        type: string
+      benchcomp-args:
+        description: 'Arguments passed directly to benchcomp'
+        default: '--verbose -A -a'
         type: string
       artifact-name:
-        description: "Name of the uploaded benchmark artifact"
-        default: "macrobenchmark-results"
+        description: 'Name of the uploaded benchmark artifact'
+        default: 'macrobenchmark-results'
         type: string
       baseline-branch:
         type: string
@@ -197,7 +209,10 @@ jobs:
           cmake: ${{ inputs.cmake }}
           channel: ${{ inputs.channel }}
           pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
+          runs: ${{ inputs.runs }}
+          benchmark-output-dir: ${{ inputs.benchmark-output-dir }}
           instrument-args: ${{ inputs.instrument-args }}
+          benchcomp-args: ${{ inputs.benchcomp-args }}
           artifact-name: ${{ inputs.artifact-name }}
           baseline-apk: "./baseline/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           candidate-apk: "./candidate/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
