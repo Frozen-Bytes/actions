@@ -89,9 +89,6 @@ log_host_environment() {
   log_section "CPU Info" "${file}"
   # Model name, architecture, core count, frequency
   lscpu >> "${file}" 2>/dev/null || true
-  # Raw /proc/cpuinfo as fallback / supplement
-  echo "--- /proc/cpuinfo (first 40 lines) ---" >> "${file}"
-  head -40 /proc/cpuinfo >> "${file}" 2>/dev/null || true
 
   log_section "Memory Info" "${file}"
   # Total RAM, type info if available
@@ -99,18 +96,11 @@ log_host_environment() {
   # DMI/SMBIOS memory type (may require root — fine if it fails)
   sudo dmidecode --type memory 2>/dev/null | grep -E "Type|Speed|Size|Manufacturer" >> "${file}" || true
 
-  log_section "Disk Info" "${file}"
-  df -h >> "${file}" 2>/dev/null || true
-  lsblk >> "${file}" 2>/dev/null || true
-
   log_section "Virtualization" "${file}"
   # Confirms whether we're on a VM and what hypervisor — relevant
   # because nested virtualization affects emulator performance significantly
   systemd-detect-virt 2>/dev/null >> "${file}" || echo "systemd-detect-virt not available" >> "${file}"
   cat /proc/cpuinfo | grep -E "hypervisor|vmx|svm" | head -5 >> "${file}" || true
-
-  log_section "Running Processes (top 20 by memory)" "${file}"
-  ps aux --sort=-%mem | head -20 >> "${file}" 2>/dev/null || true
 }
 
 # ─────────────────────────────────────────────
@@ -131,17 +121,11 @@ log_snapshot() {
   echo "--- Host: CPU load average ---" >> "${file}"
   uptime >> "${file}" 2>/dev/null || true
 
-  echo "--- Host: top 10 CPU consumers ---" >> "${file}"
-  ps aux --sort=-%cpu | head -10 >> "${file}" 2>/dev/null || true
-
   echo "--- Emulator: /proc/meminfo ---" >> "${file}"
   adb shell cat /proc/meminfo 2>/dev/null >> "${file}" || echo "adb not available" >> "${file}"
 
   echo "--- Emulator: CPU load average ---" >> "${file}"
   adb shell cat /proc/loadavg 2>/dev/null >> "${file}" || true
-
-  echo "--- Emulator: top processes (1 sample) ---" >> "${file}"
-  adb shell top -n 1 -b 2>/dev/null | head -20 >> "${file}" || true
 
   echo "--- Emulator: available storage ---" >> "${file}"
   adb shell df /sdcard 2>/dev/null >> "${file}" || true
