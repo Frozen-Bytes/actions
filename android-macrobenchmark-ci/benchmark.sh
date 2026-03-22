@@ -127,6 +127,9 @@ log_snapshot() {
   echo "--- Emulator: CPU load average ---" >> "${file}"
   adb shell cat /proc/loadavg 2>/dev/null >> "${file}" || true
 
+  echo "--- Emulator: top processes (1 sample) ---" >> "${file}"
+  adb shell top -n 1 -b 2>/dev/null | head -20 >> "${file}" || true
+
   echo "--- Emulator: available storage ---" >> "${file}"
   adb shell df /sdcard 2>/dev/null >> "${file}" || true
 }
@@ -193,7 +196,7 @@ log_monitor_event() {
 
 # ─────────────────────────────────────────────
 # FAILURE SNAPSHOT
-# Called automatically via trap ERR — captures the system
+# captures the system
 # state at the exact moment of failure, which is the most
 # valuable data for diagnosing flakiness.
 # ─────────────────────────────────────────────
@@ -231,8 +234,6 @@ log_failure_snapshot() {
     adb pull /sdcard/ui_dump.xml "${LOG_DIR}/failure_ui_dump.xml" 2>/dev/null || \
     echo "UI dump failed" >> "${file}"
 }
-
-trap 'log_failure_snapshot' ERR
 
 # ─────────────────────────────────────────────
 # LOGCAT CAPTURE
@@ -287,6 +288,7 @@ run_benchmark() {
     "${INSTRUMENT_PASSTHROUGH_ARGS[@]}" \
     "${BENCHMARK_PKG_NAME}/$TEST_RUNNER" || {
       echo "warn: benchmark run exited with non-zero status — test may have failed"
+      log_failure_snapshot
     }
 }
 
