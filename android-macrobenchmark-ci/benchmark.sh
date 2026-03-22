@@ -11,6 +11,12 @@ INSTRUMENT_PASSTHROUGH_ARGS=()
 OUTPUT_DIR="./macrobenchmark_results"
 TEST_RUNNER="androidx.test.runner.AndroidJUnitRunner"
 EMULATOR_BENCHMARK_RESULT_DIR="/sdcard/Download"
+EMULATOR_RECORDING_DIR="/sdcard/Download"
+
+# Recording
+MAX_RECORD_WAIT_ATTEMPTS=5
+RECORDING_OUTPUT_DIR="./recording"
+DO_RECORD=false
 
 # Cleanup
 TEMP_DIR="$(mktemp -d)"
@@ -32,7 +38,9 @@ Options:
   --baseline-apk <path>        Path to the baseline APK file.
   --candidate-apk <path>       Path to the candidate APK file.
   --benchmark-apk <path>       Path to the benchmark APK. Must contain instrumented tests.
-  -n, --runs <number>          Set number of runs per benchmark. (Default: 1)
+  -n, --runs <number>          Set number of runs per benchmark. (Default: ${NUMBER_OF_RUNS})
+  --screenrecord               Enable Screen recording of the Android emulator during the execution of benchmarks.
+  --screenrecord-output-dir    Directory where screen recordings will be saved. (Default: "${RECORDING_OUTPUT_DIR}")
   -h, --help                   Display this help message and exit.
 
 Additional Arguments:
@@ -76,6 +84,34 @@ write_benchmark_result() {
   mkdir -p $(dirname "${dest_path}") && mv "${pull_temp}/"*.json "${dest_path}"
 }
 
+start_screenrecord() {
+  echo "Starting screen recording..."
+  # 0 to remove the time limit.
+  adb shell screenrecord --time-limit 0 "${EMULATOR_RECORDING_DIR}/screenrecording.mp4" > /dev/null &
+}
+
+stop_screenrecord() {
+  local output_file="${1}"
+  local attempts=${MAX_RECORD_WAIT_ATTEMPTS}
+
+  echo "Stopping screen recording..."
+
+  adb shell pkill -INT screenrecord > /dev/null 2>&1 || true
+  # Wait for screenrecord to terminate gracefully
+  while adb shell pgrep screenrecord > /dev/null 2>&1 && [[ "${attempts}" -gt 0 ]]; do
+      sleep 5
+      ((attempts--))
+  done
+
+  if [[ "${attempts}" -eq 0 ]]; then
+      echo "warn: screen recording failed, couldn't stop gracefully (Recording maybe corrupt)"
+      adb shell pkill -KILL screenrecord > /dev/null 2>&1 || true
+  fi
+
+    mkdir -p "$(dirname "${output_file}")" > /dev/null 2>&1 || true
+    adb pull "${EMULATOR_RECORDING_DIR}/screenrecording.mp4" "${output_file}" > /dev/null || true
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
@@ -106,6 +142,14 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --screenrecord)
+      DO_RECORD=true
+      shift
+      ;;
+    --screenrecord-output-dir)
+      RECORDING_OUTPUT_DIR="$2"
+      shift 2
+      ;;
     --)
       shift
       INSTRUMENT_PASSTHROUGH_ARGS+=("$@")
@@ -132,20 +176,35 @@ for ((i=1; i<=${NUMBER_OF_RUNS}; i++)); do
   echo "--- Starting benchmark run (${i} / ${NUMBER_OF_RUNS}) ---"
 
   start_time=$SECONDS
-  output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S").json"
+  output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S")"
 
   # Baseline
   install_apk "${PATH_APK_BASELINE}"
+  if [[ "${DO_RECORD}" == true ]]; then
+    start_screenrecord
+  fi
   run_benchmark
-  write_benchmark_result "${OUTPUT_DIR}/baseline/${output_filename}"
+  if [[ "${DO_RECORD}" == true ]]; then
+      stop_screenrecord "${RECORDING_OUTPUT_DIR}/baseline/${output_filename}.mp4"
+  fi
+  write_benchmark_result "${OUTPUT_DIR}/baseline/${output_filename}.json"
 
   # Candidate
   install_apk "${PATH_APK_CANDIDATE}"
+  if [[ "${DO_RECORD}" == true ]]; then
+    start_screenrecord
+  fi
   run_benchmark
-  write_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}"
+  if [[ "${DO_RECORD}" == true ]]; then
+    stop_screenrecord "${RECORDING_OUTPUT_DIR}/candidate/${output_filename}.mp4"
+  fi
+  write_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}.json"
 
   duration=$((SECONDS - start_time))
   echo "--- Ending benchmark run (${i} / ${NUMBER_OF_RUNS}) took ${duration}s ---"
 done
 
 echo "Benchmark completed. Results in '$OUTPUT_DIR'"
+if [[ "${DO_RECORD}" == true ]]; then
+    echo "Screen Recordings in ${RECORDING_OUTPUT_DIR}"
+fi

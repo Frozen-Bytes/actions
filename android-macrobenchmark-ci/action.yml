@@ -85,6 +85,12 @@ inputs:
   benchmark-output-dir:
     description: 'Directory for benchmark results (passed to --output-dir)'
     default: './macrobenchmark_results'
+  screenrecord:
+    description: 'Screen recording of the Android emulator during the execution of benchmarks'
+    default: 'false'
+  screenrecord-output-dir:
+    description: 'Directory for emulator screen recordings'
+    default: './recordings'
   instrument-args:
     description: 'Extra arguments passed to instrumentation runner'
     default: ''
@@ -136,7 +142,7 @@ runs:
         pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
         script: |
           chmod +x "${{ github.action_path }}/benchmark.sh"
-          "${{ github.action_path }}/benchmark.sh" --runs "${{ inputs.runs }}" --output-dir "${{ inputs.benchmark-output-dir }}" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
+          "${{ github.action_path }}/benchmark.sh" --runs "${{ inputs.runs }}" ${{ inputs.screenrecord == 'true' && '--screenrecord' || '' }} --screenrecord-output-dir "${{ inputs.screenrecord-output-dir }}" --output-dir "${{ inputs.benchmark-output-dir }}" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
 
     - name: Compare Macrobenchmark Results
       shell: bash
@@ -148,3 +154,10 @@ runs:
       with:
         name: ${{ inputs.artifact-name }}
         path: "${{ inputs.benchmark-output-dir }}"
+
+    - name: Upload Recording Artifacts
+      if: ${{ inputs.artifact-name != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: "${{ inputs.artifact-name }}/recordings"
+        path: "${{ inputs.screenrecord-output-dir}}"

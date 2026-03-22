@@ -109,6 +109,14 @@ on:
         description: 'Arguments passed directly to benchcomp'
         default: '--verbose -A -a'
         type: string
+      screenrecord:
+        description: 'Screen recording of the Android emulator during the execution of benchmarks'
+        default: 'false'
+        type: string
+      screenrecord-output-dir:
+        description: 'Directory for emulator screen recordings'
+        default: './recordings'
+        type: string
       artifact-name:
         description: 'Name of the uploaded benchmark artifact'
         default: 'macrobenchmark-results'
@@ -213,6 +221,8 @@ jobs:
           benchmark-output-dir: ${{ inputs.benchmark-output-dir }}
           instrument-args: ${{ inputs.instrument-args }}
           benchcomp-args: ${{ inputs.benchcomp-args }}
+          screenrecord: ${{ inputs.screenrecord }}
+          screenrecord-output-dir: ${{ inputs.screenrecord-output-dir }}
           artifact-name: ${{ inputs.artifact-name }}
           baseline-apk: "./baseline/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           candidate-apk: "./candidate/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
