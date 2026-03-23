@@ -10,6 +10,8 @@ readonly EMULATOR_BENCHMARK_RESULT_DIR="/sdcard/Download/macrobenchmark"
 
 # Config
 NUMBER_OF_RUNS=1
+MAX_BENCHMARK_RETRIES=3
+
 PATH_APK_BASELINE=""
 PATH_APK_CANDIDATE=""
 PATH_APK_BENCHMARK=""
@@ -46,6 +48,7 @@ Options:
   --candidate-apk <path>       Path to the candidate APK file.
   --benchmark-apk <path>       Path to the benchmark APK. Must contain instrumented tests.
   -n, --runs <number>          Set number of runs per benchmark. (Default: ${NUMBER_OF_RUNS})
+  --retry <number>             Number of times to retry the benchmark on failure (Default: ${MAX_BENCHMARK_RETRIES}).
   -h, --help                   Display this help message and exit.
 
 Additional Arguments:
@@ -88,13 +91,45 @@ install_apk() {
 run_benchmark() {
   echo "Running benchmarks..."
 
-  adb shell am instrument -w                                      \
+  local output=$(
+    adb shell am instrument -w                                    \
     -e androidx.benchmark.suppressErrors EMULATOR                 \
     -e androidx.benchmark.profiling.mode none                     \
     -e no-isolated-storage true                                   \
     -e additionalTestOutputDir "${EMULATOR_BENCHMARK_RESULT_DIR}" \
     "${INSTRUMENT_PASSTHROUGH_ARGS[@]}"                           \
     "${BENCHMARK_PKG_NAME}/$TEST_RUNNER"
+  )
+  echo "${output}"
+
+  if [[ "${output}" =~ "FAILURES" ]]; then
+      return 1
+  fi
+
+  return 0
+}
+
+run_benchmark_with_retry() {
+  local apk_path="$1"
+  local success=false
+
+  for (( i=1; i <= MAX_BENCHMARK_RETRIES + 1; i++ )); do
+    # Reinstall before retrying to restore a clean device state.
+    install_apk "${apk_path}"
+
+    if run_benchmark; then
+      success=true
+      break
+    fi
+
+    if (( i <= MAX_BENCHMARK_RETRIES )); then
+      warn "benchmark attempt $i failed. Retrying ($i / ${MAX_BENCHMARK_RETRIES})"
+    fi
+  done
+
+  if ! ${success}; then
+    die "benchmark failed after ${attempts} attempt(s)"
+  fi
 }
 
 collect_benchmark_result() {
@@ -143,10 +178,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     -n|--runs)
       NUMBER_OF_RUNS="$2"
-      if ! [[ "$NUMBER_OF_RUNS" -eq "$NUMBER_OF_RUNS" ]] 2> /dev/null; then
-          print_usage
-          exit 1
-      fi
+      [[ "${NUMBER_OF_RUNS}" =~ ^[0-9]+$ ]] || { print_usage; exit 1; }
+      shift 2
+      ;;
+    --retry)
+      MAX_BENCHMARK_RETRIES="$2"
+      [[ "${MAX_BENCHMARK_RETRIES}" =~ ^[0-9]+$ ]] || { print_usage; exit 1; }
       shift 2
       ;;
     --)
@@ -187,13 +224,11 @@ main() {
     output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S").json"
 
     # Baseline
-    install_apk "${PATH_APK_BASELINE}"
-    run_benchmark
+    run_benchmark_with_retry "${PATH_APK_BASELINE}"
     collect_benchmark_result "${OUTPUT_DIR}/baseline/${output_filename}"
 
     # Candidate
-    install_apk "${PATH_APK_CANDIDATE}"
-    run_benchmark
+    run_benchmark_with_retry "${PATH_APK_CANDIDATE}"
     collect_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}"
 
     duration=$((SECONDS - start_time))

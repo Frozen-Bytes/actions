@@ -82,6 +82,9 @@ inputs:
   runs:
     description: 'Number of benchmark iterations (passed to --runs)'
     default: '1'
+  retry:
+    description: 'Number of times to retry the benchmark on failure'
+    default: '3'
   benchmark-output-dir:
     description: 'Directory for benchmark results (passed to --output-dir)'
     default: './macrobenchmark_results'
@@ -136,7 +139,7 @@ runs:
         pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
         script: |
           chmod +x "${{ github.action_path }}/benchmark.sh"
-          "${{ github.action_path }}/benchmark.sh" --runs "${{ inputs.runs }}" --output-dir "${{ inputs.benchmark-output-dir }}" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
+          "${{ github.action_path }}/benchmark.sh" --runs "${{ inputs.runs }}" --retry "${{ inputs.retry }}" --output-dir "${{ inputs.benchmark-output-dir }}" --baseline-apk "${{ inputs.baseline-apk }}" --candidate-apk "${{ inputs.candidate-apk }}" --benchmark-apk "${{ inputs.benchmark-apk }}" -- ${{ inputs.instrument-args }}
 
     - name: Compare Macrobenchmark Results
       shell: bash

@@ -97,6 +97,10 @@ on:
         description: 'Number of benchmark iterations (passed to --runs)'
         default: '1'
         type: string
+      retry:
+        description: 'Number of times to retry the benchmark on failure'
+        default: '3'
+        type: string
       benchmark-output-dir:
         description: 'Directory for benchmark results (passed to --output-dir)'
         default: './macrobenchmark_results'
@@ -210,6 +214,7 @@ jobs:
           channel: ${{ inputs.channel }}
           pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
           runs: ${{ inputs.runs }}
+          retry: ${{ inputs.retry }}
           benchmark-output-dir: ${{ inputs.benchmark-output-dir }}
           instrument-args: ${{ inputs.instrument-args }}
           benchcomp-args: ${{ inputs.benchcomp-args }}
