@@ -118,7 +118,8 @@ run_benchmark_with_retry() {
   local apk_path="$1"
   local success=false
 
-  for (( i=1; i <= MAX_BENCHMARK_RETRIES + 1; i++ )); do
+  local attempt
+  for (( attempt=1; attempt <= MAX_BENCHMARK_RETRIES + 1; attempt++ )); do
     # Reinstall before retrying to restore a clean device state.
     install_apk "${apk_path}"
 
@@ -127,13 +128,13 @@ run_benchmark_with_retry() {
       break
     fi
 
-    if (( i <= MAX_BENCHMARK_RETRIES )); then
-      warn "benchmark attempt $i failed. Retrying ($i / ${MAX_BENCHMARK_RETRIES})"
+    if (( attempt <= MAX_BENCHMARK_RETRIES )); then
+      warn "benchmark attempt ${attempt} failed. Retrying (${attempt} / ${MAX_BENCHMARK_RETRIES})"
     fi
   done
 
   if ! ${success}; then
-    die "benchmark failed after ${attempts} attempt(s)"
+    die "benchmark failed after ${attempt} attempt(s)"
   fi
 }
 
@@ -226,8 +227,9 @@ main() {
 
   install_apk "${PATH_APK_BENCHMARK}"
 
-  for ((i=1; i<=${NUMBER_OF_RUNS}; i++)); do
-    echo "--- Starting benchmark run ($i / ${NUMBER_OF_RUNS}) ---"
+  local run
+  for (( run=1; run <= NUMBER_OF_RUNS; run++ )); do
+    echo "--- Starting benchmark run (${run} / ${NUMBER_OF_RUNS}) ---"
 
     start_time=$SECONDS
     output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S").json"
@@ -241,7 +243,7 @@ main() {
     collect_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}"
 
     duration=$((SECONDS - start_time))
-    echo "--- Ending benchmark run ($i / ${NUMBER_OF_RUNS}) took ${duration}s ---"
+    echo "--- Ending benchmark run (${run} / ${NUMBER_OF_RUNS}) took ${duration}s ---"
   done
 
   echo "Benchmark completed. Results in \"$OUTPUT_DIR\""
