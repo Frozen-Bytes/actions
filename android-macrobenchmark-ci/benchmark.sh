@@ -1,24 +1,37 @@
 #!/usr/bin/env bash
+#
+# Automated Macrobenchmark runner
 
 set -euo pipefail
 
-# Configuration & Defaults
+# Constants
+readonly TEST_RUNNER="androidx.test.runner.AndroidJUnitRunner"
+readonly EMULATOR_BENCHMARK_RESULT_DIR="/sdcard/Download/macrobenchmark"
+
+# Config
 NUMBER_OF_RUNS=1
 PATH_APK_BASELINE=""
 PATH_APK_CANDIDATE=""
 PATH_APK_BENCHMARK=""
 INSTRUMENT_PASSTHROUGH_ARGS=()
-OUTPUT_DIR="./macrobenchmark_results"
-TEST_RUNNER="androidx.test.runner.AndroidJUnitRunner"
-EMULATOR_BENCHMARK_RESULT_DIR="/sdcard/Download"
 
-# Cleanup
-TEMP_DIR="$(mktemp -d)"
+OUTPUT_DIR="./macrobenchmark_results"
+
+# Temporary workspace (Cleaned up automatically on exit)
+readonly TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEMP_DIR}"' EXIT
 
+#############################################################################
+# Helpers
+#############################################################################
+
 die() {
-  echo "err: $*" 1>&2
+  echo "err: $*" >&2
   exit 1
+}
+
+warn() {
+    echo "warn: $*" >&2
 }
 
 print_usage() {
@@ -32,7 +45,7 @@ Options:
   --baseline-apk <path>        Path to the baseline APK file.
   --candidate-apk <path>       Path to the candidate APK file.
   --benchmark-apk <path>       Path to the benchmark APK. Must contain instrumented tests.
-  -n, --runs <number>          Set number of runs per benchmark. (Default: 1)
+  -n, --runs <number>          Set number of runs per benchmark. (Default: ${NUMBER_OF_RUNS})
   -h, --help                   Display this help message and exit.
 
 Additional Arguments:
@@ -44,37 +57,63 @@ Example:
 EOF
 }
 
-get_pkg_name() {
-  local apk="${1}"
-  apkanalyzer manifest application-id "${apk}"
+get_pkg_name_from_apk() {
+  local apk_path="$1"
+  apkanalyzer manifest application-id "${apk_path}"
 }
 
 install_apk() {
-  local apk="${1}"
-  echo "Installing APK: ${apk}"
-  adb install -d "${apk}" > /dev/null || die "failed to install apk '${apk}'"
-  adb shell pm clear "${APP_PKG_NAME}" > /dev/null 2>&1 || true
-  adb shell pm clear "${BENCHMARK_PKG_NAME}" > /dev/null 2>&1 || true
-  adb shell "rm -rf ${EMULATOR_BENCHMARK_RESULT_DIR} && mkdir -p ${EMULATOR_BENCHMARK_RESULT_DIR}" > /dev/null || true
+  local apk_path="$1"
+
+  echo "Installing APK: ${apk_path}"
+
+  # -d allows version downgrade
+  adb install -d "${apk_path}" >/dev/null || die "failed to install apk \"${apk_path}\""
+
+  # Clear any state left by a previous run
+  adb shell pm clear "${APP_PKG_NAME}"                    &>/dev/null || true
+  adb shell pm clear "${BENCHMARK_PKG_NAME}"              &>/dev/null || true
+  adb shell "rm -rf \"${EMULATOR_BENCHMARK_RESULT_DIR}\"" &>/dev/null || true
+
+  # Create any necessary directories
+  adb shell "mkdir -p \"${EMULATOR_BENCHMARK_RESULT_DIR}\"" &>/dev/null || true
 }
+
+#############################################################################
+
+#############################################################################
+# Benchmark
+#############################################################################
 
 run_benchmark() {
   echo "Running benchmarks..."
-  adb shell am instrument -w \
-    -e androidx.benchmark.suppressErrors EMULATOR \
-    -e androidx.benchmark.profiling.mode none \
-    -e no-isolated-storage true \
+
+  adb shell am instrument -w                                      \
+    -e androidx.benchmark.suppressErrors EMULATOR                 \
+    -e androidx.benchmark.profiling.mode none                     \
+    -e no-isolated-storage true                                   \
     -e additionalTestOutputDir "${EMULATOR_BENCHMARK_RESULT_DIR}" \
-    "${INSTRUMENT_PASSTHROUGH_ARGS[@]}" \
+    "${INSTRUMENT_PASSTHROUGH_ARGS[@]}"                           \
     "${BENCHMARK_PKG_NAME}/$TEST_RUNNER"
 }
 
-write_benchmark_result() {
-  local dest_path="${1}"
-  local pull_temp="${TEMP_DIR}/pull_$(date +%s)"
-  adb pull "${EMULATOR_BENCHMARK_RESULT_DIR}/." "${pull_temp}" > /dev/null
-  mkdir -p $(dirname "${dest_path}") && mv "${pull_temp}/"*.json "${dest_path}"
+collect_benchmark_result() {
+  local dest_json="${1}"
+  local staging_dir="${TEMP_DIR}/pull_$(date +%s)"
+
+  adb pull "${EMULATOR_BENCHMARK_RESULT_DIR}/." "${staging_dir}" &>/dev/null || true
+
+  mkdir -p "$(dirname "${dest_json}")" &>/dev/null || true
+
+  # There should be exactly 1 json file
+  mv "${staging_dir}/"*.json "${dest_json}" &>/dev/null || warn "failed to collect Macrobenchmark report, skipping"
 }
+
+#############################################################################
+
+#############################################################################
+# Commandline Arguments Parsing
+#############################################################################
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,10 +121,8 @@ while [[ $# -gt 0 ]]; do
       print_usage
       exit 0
       ;;
-    -o|--output-dir)
-      OUTPUT_DIR="$2"
-      shift 2
-      ;;
+
+    # Required
     --baseline-apk)
       PATH_APK_BASELINE="$2"
       shift 2
@@ -96,6 +133,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --benchmark-apk)
       PATH_APK_BENCHMARK="$2"
+      shift 2
+      ;;
+
+    # Optional
+    -o|--output-dir)
+      OUTPUT_DIR="$2"
       shift 2
       ;;
     -n|--runs)
@@ -119,33 +162,45 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${PATH_APK_BASELINE}" || -z "${PATH_APK_CANDIDATE}" || -z "${PATH_APK_BENCHMARK}" ]]; then
-    print_usage
-    exit 1
-fi
+#############################################################################
 
-APP_PKG_NAME=$(get_pkg_name "${PATH_APK_BASELINE}")
-BENCHMARK_PKG_NAME=$(get_pkg_name "${PATH_APK_BENCHMARK}")
+main() {
+  # State Validation
+  [[ -n "${PATH_APK_BASELINE}"  ]] || { print_usage; exit 1; }
+  [[ -n "${PATH_APK_CANDIDATE}" ]] || { print_usage; exit 1; }
+  [[ -n "${PATH_APK_BENCHMARK}" ]] || { print_usage; exit 1; }
 
-install_apk "${PATH_APK_BENCHMARK}"
-for ((i=1; i<=${NUMBER_OF_RUNS}; i++)); do
-  echo "--- Starting benchmark run (${i} / ${NUMBER_OF_RUNS}) ---"
+  [[ -f "${PATH_APK_BASELINE}"  ]] || die "Baseline APK not found: ${PATH_APK_BASELINE}"
+  [[ -f "${PATH_APK_CANDIDATE}" ]] || die "Candidate APK not found: ${PATH_APK_CANDIDATE}"
+  [[ -f "${PATH_APK_BENCHMARK}" ]] || die "Benchmark APK not found: ${PATH_APK_BENCHMARK}"
 
-  start_time=$SECONDS
-  output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S").json"
+  APP_PKG_NAME=$(get_pkg_name_from_apk "${PATH_APK_BASELINE}")
+  BENCHMARK_PKG_NAME=$(get_pkg_name_from_apk "${PATH_APK_BENCHMARK}")
+  readonly APP_PKG_NAME BENCHMARK_PKG_NAME
 
-  # Baseline
-  install_apk "${PATH_APK_BASELINE}"
-  run_benchmark
-  write_benchmark_result "${OUTPUT_DIR}/baseline/${output_filename}"
+  install_apk "${PATH_APK_BENCHMARK}"
 
-  # Candidate
-  install_apk "${PATH_APK_CANDIDATE}"
-  run_benchmark
-  write_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}"
+  for ((i=1; i<=${NUMBER_OF_RUNS}; i++)); do
+    echo "--- Starting benchmark run ($i / ${NUMBER_OF_RUNS}) ---"
 
-  duration=$((SECONDS - start_time))
-  echo "--- Ending benchmark run (${i} / ${NUMBER_OF_RUNS}) took ${duration}s ---"
-done
+    start_time=$SECONDS
+    output_filename="${BENCHMARK_PKG_NAME}_$(date +"%Y-%m-%dT%H-%M-%S").json"
 
-echo "Benchmark completed. Results in '$OUTPUT_DIR'"
+    # Baseline
+    install_apk "${PATH_APK_BASELINE}"
+    run_benchmark
+    collect_benchmark_result "${OUTPUT_DIR}/baseline/${output_filename}"
+
+    # Candidate
+    install_apk "${PATH_APK_CANDIDATE}"
+    run_benchmark
+    collect_benchmark_result "${OUTPUT_DIR}/candidate/${output_filename}"
+
+    duration=$((SECONDS - start_time))
+    echo "--- Ending benchmark run ($i / ${NUMBER_OF_RUNS}) took ${duration}s ---"
+  done
+
+  echo "Benchmark completed. Results in \"$OUTPUT_DIR\""
+}
+
+main
