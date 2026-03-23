@@ -33,7 +33,7 @@ die() {
 }
 
 warn() {
-    echo "warn: $*" >&2
+  echo "warn: $*" >&2
 }
 
 print_usage() {
