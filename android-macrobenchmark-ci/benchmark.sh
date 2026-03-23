@@ -60,6 +60,11 @@ Example:
 EOF
 }
 
+print_usage_and_exit() {
+  print_usage
+  exit 1
+}
+
 get_pkg_name_from_apk() {
   local apk_path="$1"
   apkanalyzer manifest application-id "${apk_path}"
@@ -150,62 +155,66 @@ collect_benchmark_result() {
 # Commandline Arguments Parsing
 #############################################################################
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -h|--help)
-      print_usage
-      exit 0
-      ;;
+parse_commandline_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        print_usage
+        exit 0
+        ;;
 
-    # Required
-    --baseline-apk)
-      PATH_APK_BASELINE="$2"
-      shift 2
-      ;;
-    --candidate-apk)
-      PATH_APK_CANDIDATE="$2"
-      shift 2
-      ;;
-    --benchmark-apk)
-      PATH_APK_BENCHMARK="$2"
-      shift 2
-      ;;
+      # Required
+      --baseline-apk)
+        PATH_APK_BASELINE="$2"
+        shift 2
+        ;;
+      --candidate-apk)
+        PATH_APK_CANDIDATE="$2"
+        shift 2
+        ;;
+      --benchmark-apk)
+        PATH_APK_BENCHMARK="$2"
+        shift 2
+        ;;
 
-    # Optional
-    -o|--output-dir)
-      OUTPUT_DIR="$2"
-      shift 2
-      ;;
-    -n|--runs)
-      NUMBER_OF_RUNS="$2"
-      [[ "${NUMBER_OF_RUNS}" =~ ^[0-9]+$ ]] || { print_usage; exit 1; }
-      shift 2
-      ;;
-    --retry)
-      MAX_BENCHMARK_RETRIES="$2"
-      [[ "${MAX_BENCHMARK_RETRIES}" =~ ^[0-9]+$ ]] || { print_usage; exit 1; }
-      shift 2
-      ;;
-    --)
-      shift
-      INSTRUMENT_PASSTHROUGH_ARGS+=("$@")
-      break
-      ;;
-    *)
-      echo "$(basename "$0"): invalid option -- '$1'"
-      echo "Try '$(basename "$0") --help' for more information"
-      exit 1
-      ;;
-  esac
-done
+      # Optional
+      -o|--output-dir)
+        OUTPUT_DIR="$2"
+        shift 2
+        ;;
+      -n|--runs)
+        NUMBER_OF_RUNS="$2"
+        [[ "${NUMBER_OF_RUNS}" =~ ^[0-9]+$ ]] || print_usage_and_exit
+        shift 2
+        ;;
+      --retry)
+        MAX_BENCHMARK_RETRIES="$2"
+        [[ "${MAX_BENCHMARK_RETRIES}" =~ ^[0-9]+$ ]] || print_usage_and_exit
+        shift 2
+        ;;
+      --)
+        shift
+        INSTRUMENT_PASSTHROUGH_ARGS+=("$@")
+        break
+        ;;
+      *)
+        echo "$(basename "$0"): invalid option -- '$1'"
+        echo "Try '$(basename "$0") --help' for more information"
+        exit 1
+        ;;
+    esac
+  done
+}
 
 #############################################################################
 
 main() {
+  parse_commandline_args "$@"
+
   # State Validation
-  [[ -n "${PATH_APK_BASELINE}"  ]] || { print_usage; exit 1; }
-  [[ -n "${PATH_APK_CANDIDATE}" ]] || { print_usage; exit 1; }
-  [[ -n "${PATH_APK_BENCHMARK}" ]] || { print_usage; exit 1; }
+  [[ -n "${PATH_APK_BASELINE}"  ]] || print_usage_and_exit
+  [[ -n "${PATH_APK_CANDIDATE}" ]] || print_usage_and_exit
+  [[ -n "${PATH_APK_BENCHMARK}" ]] || print_usage_and_exit
 
   [[ -f "${PATH_APK_BASELINE}"  ]] || die "Baseline APK not found: ${PATH_APK_BASELINE}"
   [[ -f "${PATH_APK_CANDIDATE}" ]] || die "Candidate APK not found: ${PATH_APK_CANDIDATE}"
@@ -238,4 +247,4 @@ main() {
   echo "Benchmark completed. Results in \"$OUTPUT_DIR\""
 }
 
-main
+main "$@"
