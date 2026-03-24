@@ -19,9 +19,17 @@ INSTRUMENT_PASSTHROUGH_ARGS=()
 
 OUTPUT_DIR="./macrobenchmark_results"
 
+# Spinner
+SPINNER_PID=-1
+
 # Temporary workspace (Cleaned up automatically on exit)
 readonly TEMP_DIR="$(mktemp -d)"
-trap 'rm -rf "${TEMP_DIR}"' EXIT
+trap cleanup EXIT
+
+cleanup() {
+  rm -rf "${TEMP_DIR}" || true
+  stop_spinner || true
+}
 
 #############################################################################
 # Helpers
@@ -65,6 +73,38 @@ print_usage_and_exit() {
   exit 1
 }
 
+_start_spinner() {
+  local text="$1"
+  local do_display_elapsed_time="$2"
+  local start_time=$SECONDS
+
+  while true; do
+    local elapsed=""
+    if [[ "$do_display_elapsed_time" = true ]]; then
+      elapsed=" $(( SECONDS - start_time ))s"
+    fi
+
+    echo "${text}${elapsed}"
+    sleep 60
+  done
+}
+
+start_spinner() {
+  _start_spinner "$@" &
+  SPINNER_PID=$!
+}
+
+stop_spinner() {
+  if (( SPINNER_PID < 0 )); then
+    return
+  fi
+
+  kill "${SPINNER_PID}" &>/dev/null || true
+  wait "${SPINNER_PID}" &>/dev/null || true
+
+  SPINNER_PID=-1
+}
+
 get_pkg_name_from_apk() {
   local apk_path="$1"
   apkanalyzer manifest application-id "${apk_path}"
@@ -94,7 +134,7 @@ install_apk() {
 #############################################################################
 
 run_benchmark() {
-  echo "Running benchmarks..."
+  start_spinner "Running benchmarks..." true
 
   local output=$(
     adb shell am instrument -w                                    \
@@ -105,6 +145,9 @@ run_benchmark() {
     "${INSTRUMENT_PASSTHROUGH_ARGS[@]}"                           \
     "${BENCHMARK_PKG_NAME}/$TEST_RUNNER"
   )
+
+  stop_spinner
+
   echo "${output}"
 
   if [[ "${output}" =~ "FAILURES" ]]; then
