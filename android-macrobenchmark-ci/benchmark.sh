@@ -117,9 +117,10 @@ run_benchmark() {
 run_benchmark_with_retry() {
   local apk_path="$1"
   local success=false
+  local attempts=$(( MAX_BENCHMARK_RETRIES + 1 ))
 
   local attempt
-  for (( attempt=1; attempt <= MAX_BENCHMARK_RETRIES + 1; attempt++ )); do
+  for (( attempt=1; attempt <= attempts; attempt++ )); do
     # Reinstall before retrying to restore a clean device state.
     install_apk "${apk_path}"
 
@@ -134,7 +135,7 @@ run_benchmark_with_retry() {
   done
 
   if ! ${success}; then
-    die "benchmark failed after ${attempt} attempt(s)"
+    die "benchmark failed after ${attempts} attempt(s)"
   fi
 }
 
