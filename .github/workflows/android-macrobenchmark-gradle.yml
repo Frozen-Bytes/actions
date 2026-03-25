@@ -157,7 +157,7 @@ jobs:
       - name: Checkout branch (Candidate)
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.candidate-branch != '' && inputs.candidate-branch || github.ref_name }}
+          ref: ${{ (inputs.candidate-branch != '' && inputs.candidate-branch) || (github.head_ref != '' && github.head_ref) || github.ref_name }}
           path: candidate
 
       - name: Setup JDK 17

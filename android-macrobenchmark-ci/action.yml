@@ -147,6 +147,8 @@ runs:
 
     - name: Comment Results on Pull Request
       if: github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ github.token }}
       shell: bash
       run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat compare_results.txt)"
 
