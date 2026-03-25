@@ -222,3 +222,11 @@ jobs:
           baseline-apk: "./baseline/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           candidate-apk: "./candidate/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           benchmark-apk: "./candidate/benchmarks/build/outputs/apk/demo/benchmarkRelease/benchmarks-demo-benchmarkRelease.apk"
+
+      - name: Comment Results on Pull Request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        working-directory: ./baseline
+        run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat ../compare_results.txt)"

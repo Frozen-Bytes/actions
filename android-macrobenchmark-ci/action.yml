@@ -145,13 +145,6 @@ runs:
       shell: bash
       run: benchcomp ${{ inputs.benchcomp-args }} -- "${{ inputs.benchmark-output-dir }}/baseline" "${{ inputs.benchmark-output-dir }}/candidate" | tee compare_results.txt
 
-    - name: Comment Results on Pull Request
-      if: github.event_name == 'pull_request'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      shell: bash
-      run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat compare_results.txt)"
-
     - name: Upload Artifacts
       if: ${{ inputs.artifact-name != '' }}
       uses: actions/upload-artifact@v4
