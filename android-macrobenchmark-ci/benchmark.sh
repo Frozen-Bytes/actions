@@ -271,6 +271,12 @@ main() {
 
   install_apk "${PATH_APK_BENCHMARK}"
 
+  # Since we are not using a boot snapshot, each run starts from a cold boot.
+  # This can cause an unusual high load spike during the very first ever run.
+  # Hopefully adding a delay helps stabilize the emulator
+  echo "Waiting 120 seconds for the emulator to fully boot..."
+  sleep 120
+
   local run
   for (( run=1; run <= NUMBER_OF_RUNS; run++ )); do
     echo "--- Starting benchmark run (${run} / ${NUMBER_OF_RUNS}) ---"
