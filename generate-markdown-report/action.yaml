@@ -1,0 +1,65 @@
+name: "Generate Markdown Report"
+description: "Generate Android performance analysis report"
+
+inputs:
+  prefix:
+    description: "Artifact name prefix"
+    required: true
+  github-token:
+    description: "GitHub token with pull-requests:write and actions:read permissions"
+    required: true
+    default: ${{ github.token }}
+  update-only:
+    description: "Update existing comment instead of posting a new one"
+    required: false
+    default: "false"
+  artifact-path:
+    description: "Local path to download artifacts into"
+    required: false
+    default: ".artifacts"
+  upload-artifact:
+    description: "Whether to upload the markdown report as an artifact"
+    required: false
+    default: "true"
+  comment-on-pr:
+    description: "Whether to comment results on the PR"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Fetch Artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: ${{ inputs.prefix }}
+        merge_multiple: true
+        github_token: ${{ inputs.github-token }}
+        path: ${{ inputs.artifact-path }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.13"
+
+    - name: Install Benchmarkdown
+      shell: bash
+      run: pip install git+https://github.com/Frozen-Bytes/benchmarkdown.git@v1.0.0
+
+    - name: Build Comment Body
+      shell: bash
+      run: benchmarkdown -o markdown-report.md "${{ inputs.artifact-path }}/"*.json
+
+    - name: Upload Report Artifact
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: markdown-report
+        path: ./markdown-report.md
+
+    - name: Comment Results on Pull Request
+      if: ${{ inputs.comment-on-pr == 'true' }}
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      shell: bash
+      run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat ./markdown-report.md)"
