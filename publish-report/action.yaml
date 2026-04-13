@@ -41,13 +41,13 @@ runs:
 
     - name: Generate Markdown Report
       shell: bash
-      run: benchmarkdown -o ${{ inputs.upload-artifact-name }} "${{ inputs.artifact-path }}/"*.json
+      run: benchmarkdown -o "${{ inputs.upload-artifact-name }}" -- .artifacts/
 
     - name: Upload Report Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
-        name: ${{ inputs.upload-artifact-name }}
-        path: ${{ inputs.upload-artifact-name }}
+        name: "${{ inputs.upload-artifact-name }}"
+        path: "${{ inputs.upload-artifact-name }}"
         archive: false
 
     - name: Comment Results on Pull Request
@@ -55,4 +55,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       shell: bash
-      run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat ${{ inputs.upload-artifact-name }})"
+      run: |
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --repo "${{ github.repository }}" \
+          --body-file "${{ inputs.upload-artifact-name }}"

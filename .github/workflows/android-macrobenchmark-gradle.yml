@@ -130,15 +130,18 @@ on:
         type: string
 
       # Artifacts
-      artifact-path:
+      artifact-name:
         description: 'Name of the uploaded benchcomp result artifact'
+        default: 'benchcomp.json'
         type: string
       artifact-macrobenchmark-name:
         description: 'Name of the uploaded raw MacroBenchmark results'
+        default: 'raw-macrobenchmarks'
         type: string
       upload-macrobenchmark:
         description: 'Whether to upload raw MacroBenchmark results'
-        type: bool
+        default: 'true'
+        type: string
 
 jobs:
   benchmark-android:
@@ -195,7 +198,7 @@ jobs:
           ./gradlew :app:assembleDemoBenchmark :benchmarks:assembleDemoBenchmark
 
       - name: Android Macrobenchmark CI
-        uses: Frozen-Bytes/actions/android-macrobenchmark-ci@v2
+        uses: Frozen-Bytes/actions/android-macrobenchmark-ci@v3
         with:
           # Emulator Options
           api-level: ${{ inputs.api-level }}
@@ -237,6 +240,6 @@ jobs:
           args: ${{ inputs.args }}
 
           # Artifacts
-          artifact-path: ${{ inputs.artifact-path }}
-          artifact-macrobenchmark-name: ${{ inputs.artifacts-macrobenchmark-name }}
+          artifact-name: "${{ inputs.artifact-name }}"
+          artifact-macrobenchmark-name: "${{ inputs.artifact-macrobenchmark-name }}"
           upload-macrobenchmark: ${{ inputs.upload-macrobenchmark }}

@@ -102,8 +102,8 @@ inputs:
     default: "--verbose -A -a"
 
   # Artifacts
-  artifact-path:
-    description: "Path of the uploaded benchcomp result artifact"
+  artifact-name:
+    description: "Name of the uploaded benchcomp result artifact"
     required: false
     default: "benchcomp.json"
   artifact-macrobenchmark-name:
@@ -113,7 +113,7 @@ inputs:
   upload-macrobenchmark:
     description: "Wether to upload raw MacroBenchmark results"
     required: false
-    default: true
+    default: "true"
 
 runs:
   using: "composite"
@@ -125,7 +125,7 @@ runs:
 
     - name: Install Benchcomp
       shell: bash
-      run: pip install git+https://github.com/Frozen-Bytes/benchcomp.git@v1.2.0
+      run: pip install git+https://github.com/Frozen-Bytes/benchcomp.git@v1.3.0
 
     - name: Run Benchmarks
       uses: reactivecircus/android-emulator-runner@v2
@@ -162,17 +162,18 @@ runs:
 
     - name: Compare Macrobenchmark Results
       shell: bash
-      run: benchcomp ${{ inputs.args }} -o "${{ inputs.artifact-path }}" -- "benchcomp/out/baseline" "benchcomp/out/candidate"
+      run: benchcomp ${{ inputs.args }} -o "benchcomp/out/${{ inputs.artifact-name }}" -- "benchcomp/out/baseline" "benchcomp/out/candidate"
 
     - name: Upload Raw Macrobenchmark Measurements
-      if: ${{ inputs.upload-macrobenchmark }}
+      if: ${{ inputs.upload-macrobenchmark == 'true' }}
+      uses: actions/upload-artifact@v7
       with:
-        name: "${{ inputs.artifacts-macrobenchmark-name }}"
+        name: "${{ inputs.artifact-macrobenchmark-name }}"
         path: "benchcomp/out"
 
     - name: Upload Benchcomp Result Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
-        name: ${{ inputs.artifact-path }}
-        path: "${{ inputs.artifact-path }}"
+        name: "${{ inputs.artifact-name }}"
+        path: "benchcomp/out/${{ inputs.artifact-name }}"
         archive: false
