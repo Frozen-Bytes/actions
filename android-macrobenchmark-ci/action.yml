@@ -100,6 +100,10 @@ inputs:
     description: "Arguments passed directly to benchcomp"
     required: false
     default: "--verbose -A -a"
+  device-alias:
+    description: "Attach an alias to the AVD device identifier"
+    required: false
+    default: ""
 
   # Artifacts
   artifact-name:
@@ -162,7 +166,7 @@ runs:
 
     - name: Compare Macrobenchmark Results
       shell: bash
-      run: benchcomp ${{ inputs.args }} -o "benchcomp/out/${{ inputs.artifact-name }}" -- "benchcomp/out/baseline" "benchcomp/out/candidate"
+      run: benchcomp ${{ inputs.args }} --device-alias "${{ inputs.device-alias }}" -o "benchcomp/out/${{ inputs.artifact-name }}" -- "benchcomp/out/baseline" "benchcomp/out/candidate"
 
     - name: Upload Raw Macrobenchmark Measurements
       if: ${{ inputs.upload-macrobenchmark == 'true' }}

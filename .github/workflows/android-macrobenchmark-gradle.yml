@@ -128,6 +128,10 @@ on:
         description: 'Arguments passed directly to benchcomp'
         default: '--verbose -A -a'
         type: string
+      device-alias:
+        description: 'Attach an alias to the AVD device identifier'
+        default: ''
+        type: string
 
       # Artifacts
       artifact-name:
@@ -238,6 +242,7 @@ jobs:
 
           # Benchcomp Options
           args: ${{ inputs.args }}
+          device-alias: "${{ inputs.device-alias }}"
 
           # Artifacts
           artifact-name: "${{ inputs.artifact-name }}"
