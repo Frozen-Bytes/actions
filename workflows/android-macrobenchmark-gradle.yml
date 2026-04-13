@@ -93,30 +93,8 @@ on:
       pre-emulator-launch-script:
         description: 'custom script to run after creating the AVD and before launching the emulator - e.g. `./adjust-emulator-configs.sh`'
         type: string
-      runs:
-        description: 'Number of benchmark iterations (passed to --runs)'
-        default: '1'
-        type: string
-      retry:
-        description: 'Number of times to retry the benchmark on failure'
-        default: '3'
-        type: string
-      benchmark-output-dir:
-        description: 'Directory for benchmark results (passed to --output-dir)'
-        default: './macrobenchmark_results'
-        type: string
-      instrument-args:
-        description: 'Extra arguments passed to instrumentation runner'
-        default: ''
-        type: string
-      benchcomp-args:
-        description: 'Arguments passed directly to benchcomp'
-        default: '--verbose -A -a'
-        type: string
-      artifact-name:
-        description: 'Name of the uploaded benchmark artifact'
-        default: 'macrobenchmark-results'
-        type: string
+
+      # Build Options
       baseline-branch:
         type: string
         default: main
@@ -130,6 +108,37 @@ on:
         required: false
         default: ${{ github.event.repository != null && github.ref_name != github.event.repository.default_branch }}
         type: boolean
+
+      # Benchmark.sh Options
+      runs:
+        description: 'Number of benchmark iterations (passed to --runs)'
+        default: '1'
+        type: string
+      retry:
+        description: 'Number of times to retry the benchmark on failure'
+        default: '3'
+        type: string
+      instrument-args:
+        description: 'Extra arguments passed to instrumentation runner'
+        default: ''
+        type: string
+
+      # Benchcomp Options
+      args:
+        description: 'Arguments passed directly to benchcomp'
+        default: '--verbose -A -a'
+        type: string
+
+      # Artifacts
+      artifact-path:
+        description: 'Name of the uploaded benchcomp result artifact'
+        type: string
+      artifact-macrobenchmark-name:
+        description: 'Name of the uploaded raw MacroBenchmark results'
+        type: string
+      upload-macrobenchmark:
+        description: 'Whether to upload raw MacroBenchmark results'
+        type: bool
 
 jobs:
   benchmark-android:
@@ -188,6 +197,7 @@ jobs:
       - name: Android Macrobenchmark CI
         uses: Frozen-Bytes/actions/android-macrobenchmark-ci@v2
         with:
+          # Emulator Options
           api-level: ${{ inputs.api-level }}
           system-image-api-level: ${{ inputs.system-image-api-level }}
           target: ${{ inputs.target }}
@@ -213,20 +223,20 @@ jobs:
           cmake: ${{ inputs.cmake }}
           channel: ${{ inputs.channel }}
           pre-emulator-launch-script: ${{ inputs.pre-emulator-launch-script }}
-          runs: ${{ inputs.runs }}
-          retry: ${{ inputs.retry }}
-          benchmark-output-dir: ${{ inputs.benchmark-output-dir }}
-          instrument-args: ${{ inputs.instrument-args }}
-          benchcomp-args: ${{ inputs.benchcomp-args }}
-          artifact-name: ${{ inputs.artifact-name }}
+
+          # Benchmark.sh Inputs (Required)
           baseline-apk: "./baseline/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           candidate-apk: "./candidate/app/build/outputs/apk/demo/benchmarkRelease/app-demo-benchmarkRelease.apk"
           benchmark-apk: "./candidate/benchmarks/build/outputs/apk/demo/benchmarkRelease/benchmarks-demo-benchmarkRelease.apk"
+          # Benchmark.sh Options
+          runs: ${{ inputs.runs }}
+          retry: ${{ inputs.retry }}
+          instrument-args: ${{ inputs.instrument-args }}
 
-      - name: Comment Results on Pull Request
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        working-directory: ./baseline
-        run: gh pr comment "${{ github.event.pull_request.number }}" --body "$(cat ../compare_results.txt)"
+          # Benchcomp Options
+          args: ${{ inputs.args }}
+
+          # Artifacts
+          artifact-path: ${{ inputs.artifact-path }}
+          artifact-macrobenchmark-name: ${{ inputs.artifacts-macrobenchmark-name }}
+          upload-macrobenchmark: ${{ inputs.upload-macrobenchmark }}
